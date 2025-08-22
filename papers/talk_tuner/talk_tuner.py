@@ -123,7 +123,6 @@ class GenderDataset(Dataset):
         self.files = []
         self.labels = []
         self.conversations = []
-        self.activations = []
         self.load_data()
 
     def prompt_template(self, conversation, attribute):
@@ -168,14 +167,15 @@ class GenderDataset(Dataset):
                 # save the activations from each layer
                 activations = []
                 layer_p_bar = tqdm(
-                    range(len(self.model.model.layers)), desc="Saving activations"
+                    range(19, len(self.model.model.layers)), desc="Saving activations"
                 )
 
                 for layer_idx in layer_p_bar:
                     # pass
-                    activations.append(
-                        self.model.model.layers[layer_idx].output[0].save()
+                    last_token_activations = (
+                        self.model.model.layers[layer_idx].output[:, -1, :].save()
                     )
+                    activations.append(last_token_activations)
                     layer_p_bar.set_description(
                         f"Saving activations for layer {layer_idx}"
                     )
