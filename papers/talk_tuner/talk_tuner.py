@@ -1,24 +1,48 @@
-# %%
-from nnsight import LanguageModel, CONFIG
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from rich.console import Console
+from rich.spinner import Spinner
+import time
 import torch
-from tqdm import tqdm
-import os
-from dotenv import load_dotenv
+from torch.utils.data import DataLoader, Subset, random_split
 
-# tokenizer = AutoTokenizer.from_pretrained(
-#     "meta-llama/Llama-2-13b-chat-hf", use_auth_token=True
-# )
-# model = AutoModelForCausalLM.from_pretrained(
-#     "meta-llama/Llama-2-13b-chat-hf", use_auth_token=True
-# )
+console = Console()
 
-# model.half().cuda()
-# model.eval()
-llama = LanguageModel("meta-llama/Meta-Llama-3.1-8B")
+with console.status("[bold green]Loading packages...") as status:
+    from nnsight import LanguageModel, CONFIG
+    import torch
+    from tqdm import tqdm
+    import os
+    from dotenv import load_dotenv
+    import dotenv
+    from transformers import BitsAndBytesConfig
+
+with console.status("[bold green]Loading .env...") as status:
+    dotenv.load_dotenv('/workspace/sandbox/.env')
+
+with console.status("[bold green]Loading Llama model...") as status:
+
+    # quantize model
+    qcfg = BitsAndBytesConfig(load_in_8bit=True)
+    llama = LanguageModel('meta-llama/Llama-2-7b-chat-hf', device_map='cuda', dispatch=True, quantization_config=qcfg, attn_implementation='eager')
+
+    # llama = LanguageModel("meta-llama/Llama-2-7b-chat-hf", device_map="auto")
+    # llama.model = llama.model.half()
+
 os.environ["NDIF_API_KEY"] = "adbcde9f-bc87-4d14-8d47-a39a334db8c0"
 os.environ["HF_TOKEN"] = "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"
 CONFIG.set_default_api_key(os.getenv("NDIF_API_KEY"))
+
+# Simple trace to log layer output shapes
+with console.status("[bold green]Running trace to log layer shapes...") as status:
+    with llama.trace("Hello world!") as tracer:
+        for layer_idx in range(len(llama.model.layers)):
+            layer_output = llama.model.layers[layer_idx].output
+            print(f"Layer {layer_idx} output shape: {layer_output.shape}")
+        
+        # Also log embedding and final layer norm shapes
+        embed_output = llama.model.embed_tokens.output
+        
+        print(f"Embedding output shape: {embed_output.shape}")
+
 
 # %%
 ## DATASET STATS
@@ -27,8 +51,6 @@ import os
 dataset_dir = "dataset"
 file_count = 0
 dir_count = 0
-
-print(f"Current working directory: {os.getcwd()}")
 
 for root, dirs, files in os.walk(dataset_dir):
     print(f"Directory: {root}")
@@ -40,9 +62,6 @@ for root, dirs, files in os.walk(dataset_dir):
         file_path = os.path.join(root, file)
         # print(f"  File: {file_path}")
         file_count += 1
-
-# print(f"Total directories: {dir_count}")
-# print(f"Total files: {file_count}")
 
 
 # %%
@@ -111,6 +130,7 @@ def llama_v2_prompt(messages: list[dict], system_prompt=None):
     return "".join(messages_list)
 
 
+
 # %%
 import re
 from torch.utils.data import Dataset
@@ -142,8 +162,9 @@ class GenderDataset(Dataset):
                         file_path = os.path.join(root, file)
                         all_files.append(file_path)
 
-        for file_path in tqdm(all_files, desc="Loading conversations"):
-            print(f"Loading {file_path}")
+        file_p_bar = tqdm(all_files, desc="Loading conversations", position=0)
+        for file_path in file_p_bar:
+            # print(f"Loading {file_path}")
             self.files.append(file_path)
             conversation = self.load_conversation_from_file(file_path)
             attribute = self.get_attribute_from_file_path(file_path)
@@ -168,17 +189,26 @@ class GenderDataset(Dataset):
                 # save the activations from each layer
                 activations = []
                 layer_p_bar = tqdm(
-                    range(len(self.model.model.layers)), desc="Saving activations"
+                    range(len(self.model.model.layers)), 
+                    desc="Saving final tokenactivations",
+                    position=1,
+                    leave=False
                 )
 
                 for layer_idx in layer_p_bar:
-                    # pass
-                    activations.append(
-                        self.model.model.layers[layer_idx].output[0].save()
+                    last_token_activations = (
+                        self.model.model.layers[layer_idx].output[:,-1,:]
+                        .detach()
+                        .cpu()
+                        .clone()
+                        .to(torch.float)
+                        .save()
                     )
+                    activations.append(last_token_activations)
                     layer_p_bar.set_description(
                         f"Saving activations for layer {layer_idx}"
                     )
+                    del last_token_activations
 
                 layer_p_bar.close()
 
@@ -222,11 +252,8 @@ class TrainerConfig:
             setattr(self, k, v)
 
 
-# %%
 # Tokenize the inputs
 
-import torch
-from torch.utils.data import DataLoader, Subset, random_split
 
 
 train_size = int(0.8 * len(dataset))
@@ -238,12 +265,26 @@ train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=32, shuffle=True)
 
 
-# %%
-
-
 def train(model, train_loader, optimizer, config):
-    pass
+    model.train()
+    for batch in train_loader:
+        # send the batch through the probe
+
+        # calculate the loss
+
+        # backpropagate the loss
+
+        # update the model parameters
+
+        pass
 
 
 def test(model, test_loader, config):
-    pass
+    model.eval()
+    for batch in test_loader:
+        pass
+
+
+
+
+
