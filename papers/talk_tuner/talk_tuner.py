@@ -1,3 +1,4 @@
+# %%
 from rich.console import Console
 from rich.spinner import Spinner
 import time
@@ -47,6 +48,9 @@ with console.status("[bold green]Running trace to log layer shapes...") as statu
         embed_output = llama.model.embed_tokens.output
         
         print(f"Embedding output shape: {embed_output.shape}")
+
+# %%
+
 
 
 # %%
