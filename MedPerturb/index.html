@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The MedPerturb Dataset</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-light: #f9fafb;
+      --text-light: #1f2937;
+      --bg-dark: #1f2937;
+      --text-dark: #f9fafb;
+      --accent: #498467;
+      --gray: #6b7280;
+      --gray-light: #d1d5db;
+      --light: #e5e7eb;
+      --card-bg-light: white;
+      --card-bg-dark: #374151;
+    }
+
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-light);
+      color: var(--text-light);
+      margin: 0;
+      padding: 2rem;
+      line-height: 1.6;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    body.dark-mode {
+      background-color: var(--bg-dark);
+      color: var(--text-dark);
+    }
+
+    body.dark-mode .authors a {
+      color: #93f9b9; /* or another high-contrast light color */
+    }
+
+    body.dark-mode .authors a:hover {
+      color: #bbffe3;
+    }
+
+    body.dark-mode img {
+      filter: brightness(0.85) contrast(1.05);
+    }
+    
+    header, section {
+      max-width: 960px;
+      margin: auto;
+      margin-bottom: 3rem;
+      position: relative;
+    }
+
+    h1 {
+      font-size: 2.4rem;
+      font-weight: 600;
+      margin-bottom: 0.2rem;
+    }
+
+    .subtitle {
+      font-size: 1.2rem;
+      color: var(--gray);
+      margin-bottom: 1rem;
+    }
+
+    body.dark-mode .subtitle {
+      color: var(--gray-light);
+    }
+
+    .title-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      height: 60px;
+      margin-left: 1rem;
+    }
+
+    .authors {
+      color: var(--gray);
+      font-size: 0.95rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .affiliations {
+      font-size: 0.85rem;
+      color: var(--gray);
+      margin-bottom: 1.5rem;
+    }
+
+    .buttons a {
+      display: inline-block;
+      margin-right: 1rem;
+      margin-bottom: 1rem;
+      padding: 0.5rem 1rem;
+      background-color: var(--accent);
+      color: white;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+
+    .buttons a:hover {
+      background-color: #3b6e5a;
+    }
+
+    h2 {
+      font-size: 1.6rem;
+      margin-top: 2rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid var(--light);
+      padding-bottom: 0.4rem;
+    }
+
+    table {
+      width: 90%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      background-color: var(--card-bg-light);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+
+    body.dark-mode table {
+      background-color: var(--card-bg-dark);
+    }
+
+    th, td {
+      border: 1px solid var(--light);
+      padding: 0.6rem 0.8rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background-color: #f3f4f6;
+    }
+
+    body.dark-mode th {
+      background-color: #4b5563;
+      color: #f9fafb;
+    }
+
+    img {
+      max-width: 100%;
+      height: auto;
+      margin-top: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .card {
+      background-color: var(--card-bg-light);
+      padding: 1rem 1.5rem;
+      border: 1px solid var(--light);
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      margin-top: 1rem;
+    }
+
+    body.dark-mode .card {
+      background-color: var(--card-bg-dark);
+    }
+
+    .card h3 {
+      margin-top: 0;
+      color: var(--accent);
+    }
+
+    .card a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--gray);
+      margin-top: 4rem;
+    }
+
+    /* THEME TOGGLE BUTTON STYLES */
+    .theme-toggle {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      z-index: 1000;
+      background-color: var(--accent);
+      color: white;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .theme-toggle:hover {
+      background-color: #3b6e5a;
+    }
+  </style>
+</head>
+<body class="light-mode">
+  <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
+
+  <header>
+    <div class="title-container">
+      <div>
+        <h1>The MedPerturb Dataset</h1>
+        <div class="subtitle">What Gender, Stylistic, and Viewpoint Perturbations Reveal About Human and Clinical LLM Reasoning</div>
+      </div>
+      <img src="assets/logo_nowords.png" alt="Logo" class="logo">
+    </div>
+    <p class="authors">
+      Abinitha Gourabathina<sup>1</sup>, Yuexing Hao<sup>1,2</sup>, Walter Gerych<sup>1</sup>, Marzyeh Ghassemi<sup>1</sup><br>
+      Contact: <a href="mailto:abinitha@mit.edu">abinitha@mit.edu</a>
+    </p>
+    <p class="affiliations">
+      <sup>1</sup>Department of Electrical Engineering and Computer Science, Massachusetts Institute of Technology, Cambridge, MA, USA<br>
+      <sup>2</sup>Department of Information Science, Cornell University, Ithaca, NY, USA
+    </p>
+    <div class="buttons">
+      <a href="https://arxiv.org/abs/2506.17163">Paper</a>
+      <a href="https://github.com/abinithago/MedPerturb">GitHub</a>
+      <a href="https://huggingface.co/datasets/abinitha/MedPerturb">Hugging Face</a>
+      <a href="assets/medperturb.jsonld" download>Download Data</a>
+    </div>
+  </header>
+
+  <section>
+    <h2>Abstract</h2>
+    <p>
+      Clinical robustness is critical to the safe deployment of medical Large Language Models (LLMs), but key questions remain about how LLMs and humans may differ in response to the real-world variability typified by clinical settings. To address this, we introduce MedPerturb, a dataset designed to systematically evaluate medical LLMs under controlled perturbations of clinical input. MedPerturb consists of clinical vignettes spanning a range of pathologies, each transformed along three axes: (1) gender modifications (e.g., gender-swapping or gender-removal); (2) stylistic variation (e.g., uncertain phrasing or colloquial tone); and (3) viewpoint reformulations (e.g., multi-turn conversations or summaries). With MedPerturb, we release a dataset of 800 clinical contexts grounded in realistic input variability, outputs from four LLMs, and three human expert reads per clinical context. We use MedPerturb in two case studies to reveal how shifts in gender identity cues, language style, or viewpoint reflect diverging reasoning capabilities between humans and LLMs. Our results highlight the need for evaluation frameworks that go beyond static benchmarks to assess alignment in clinical reasoning between humans and AI systems.
+    </p>
+    <p><strong>
+      <figure>
+      <img src="assets/website_pipeline.png" alt="Figure 1 placeholder">
+    </figure>
+  </section>
+
+  <section> 
+    <h2>Dataset Overview</h2>
+    <div style="max-width: 650px; margin: auto;">
+      <table style="font-size: 0.9rem;">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Original Data Source</th>
+            <th>Perturbation</th>
+            <th>Clinical Contexts</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td rowspan="5">OncQA</td><td>Baseline</td><td>50</td></tr>
+          <tr><td>2</td><td>Gender-Swapped</td><td>50</td></tr>
+          <tr><td>3</td><td>Gender-Removed</td><td>50</td></tr>
+          <tr><td>4</td><td>Uncertain</td><td>50</td></tr>
+          <tr><td>5</td><td>Colorful</td><td>50</td></tr>
+    
+          <tr><td>6</td><td rowspan="5">r/AskaDocs</td><td>Baseline</td><td>50</td></tr>
+          <tr><td>7</td><td>Gender-Swapped</td><td>50</td></tr>
+          <tr><td>8</td><td>Gender-Removed</td><td>50</td></tr>
+          <tr><td>9</td><td>Uncertain</td><td>50</td></tr>
+          <tr><td>10</td><td>Colorful</td><td>50</td></tr>
+    
+          <tr><td>11</td><td rowspan="3">USMLE and Derm</td><td>Vignette</td><td>100</td></tr>
+          <tr><td>12</td><td>Multiturn</td><td>100</td></tr>
+          <tr><td>13</td><td>Conversational</td><td>100</td></tr>
+    
+          <tr><td colspan="3" style="text-align: right;"><strong>Total Clinical Contexts</strong></td><td><strong>800</strong></td></tr>
+          <tr><td colspan="3" style="text-align: right;"><strong>Treatment Questions (3 per context)</strong></td><td><strong>×3 = 2400</strong></td></tr>
+          <tr><td colspan="3" style="text-align: right;"><strong>Total human reads (3 per question)</strong></td><td><strong>×3 = 7,200</strong></td></tr>
+          <tr><td colspan="3" style="text-align: right;"><strong>Total LLM reads (3 per question × 4 models)</strong></td><td><strong>×4 = 28,800</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="results" class="py-12 bg-white dark:bg-gray-900">
+  <div class="max-w-4xl mx-auto px-4">
+    <h2 class="text-3xl font-semibold text-gray-800 dark:text-white mb-6">Key Findings of Case Studies</h2>
+
+    <ul class="list-disc list-inside space-y-4 text-gray-700 dark:text-gray-200 text-lg">
+      <li>
+        <span class="font-semibold">LLMs tend to over-allocate resources and under-recommend self-management</span>: They often favor more intensive medical interventions than necessary, potentially straining healthcare systems and misaligning with patient-centered care.
+      </li>
+      <li>
+        <span class="font-semibold">LLMs are more sensitive to gender and language style than humans</span>: Minor wording or gender cues can shift model outputs, raising concerns about model reasoning and the relevance of non-clinical features in medical decision-making.
+      </li>
+      <li>
+        <span class="font-semibold">AI-generated clinical content can shift human decision-making</span>: Clinicians shown AI-generated text tend to recommend more self-management and less resources, showing that AI content can influence treatment planning. Specifically, we look at LLM-generated summaries and multiturn conversations, which are key LLM tasks in clinical integration. 
+      </li>
+    </ul>
+  </div>
+</section>
+
+  <section>
+    <h2>Hugging Face Dataset Card</h2>
+    <div class="card">
+      <h3><a href="https://huggingface.co/datasets/abinithago/MedPerturb">MedPerturb on Hugging Face</a></h3>
+      <p>
+        The MedPerturb dataset contains 800 clinical vignettes systematically perturbed along gender, style, and viewpoint axes. Each context has 3 treatment questions and is annotated by humans and LLMs.
+      </p>
+      <p>
+        → <strong>Use case:</strong> Robustness testing, fairness auditing, hallucination detection, clinical evaluation
+      </p>
+      <p>
+        → <strong>Format:</strong> JSON, with metadata on perturbation type, model responses, and clinician judgments.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      © 2025. This work is licensed under a 
+      <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">
+        Creative Commons Attribution 4.0 International License
+      </a>.
+    </p>
+    <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">
+      <img style="margin-top: 0.5rem;" alt="Creative Commons License" 
+           src="https://licensebuttons.net/l/by/4.0/88x31.png" />
+    </a>
+  </footer>
+
+  <script>
+    function toggleTheme() {
+      const body = document.body;
+      const isLight = body.classList.contains('light-mode');
+      body.classList.toggle('light-mode', !isLight);
+      body.classList.toggle('dark-mode', isLight);
+      const btn = document.querySelector('.theme-toggle');
+      btn.textContent = isLight ? '☀️ Light Mode' : '🌙 Dark Mode';
+    }
+  </script>
+</body>
+</html>
