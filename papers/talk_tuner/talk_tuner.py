@@ -1,24 +1,61 @@
 # %%
-from nnsight import LanguageModel, CONFIG
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from rich.console import Console
+from rich.spinner import Spinner
+import time
 import torch
-from tqdm import tqdm
+from torch.utils.data import DataLoader, Subset, random_split
+from probes import LinearProbeClassification
+import torch.nn as nn
 import os
-from dotenv import load_dotenv
+import pickle
+from gender_dataset import GenderDataset, split_conversation, llama_v2_prompt
 
-# tokenizer = AutoTokenizer.from_pretrained(
-#     "meta-llama/Llama-2-13b-chat-hf", use_auth_token=True
-# )
-# model = AutoModelForCausalLM.from_pretrained(
-#     "meta-llama/Llama-2-13b-chat-hf", use_auth_token=True
-# )
+console = Console()
 
-# model.half().cuda()
-# model.eval()
-llama = LanguageModel("meta-llama/Meta-Llama-3.1-8B")
+with console.status("[bold green]Loading packages...") as status:
+    from nnsight import LanguageModel, CONFIG
+    import torch
+    from tqdm import tqdm
+    import os
+    from dotenv import load_dotenv
+    import dotenv
+    from transformers import BitsAndBytesConfig
+
+with console.status("[bold green]Loading .env...") as status:
+    dotenv.load_dotenv("/workspace/sandbox/.env")
+
+with console.status("[bold green]Loading Llama model...") as status:
+    # quantize model
+    qcfg = BitsAndBytesConfig(load_in_8bit=True)
+    llama = LanguageModel(
+        "meta-llama/Llama-2-7b-chat-hf",
+        device_map="cuda",
+        dispatch=True,
+        quantization_config=qcfg,
+        attn_implementation="eager",
+    )
+
+    # llama = LanguageModel("meta-llama/Llama-2-7b-chat-hf", device_map="auto")
+    # llama.model = llama.model.half()
+
 os.environ["NDIF_API_KEY"] = "adbcde9f-bc87-4d14-8d47-a39a334db8c0"
 os.environ["HF_TOKEN"] = "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"
 CONFIG.set_default_api_key(os.getenv("NDIF_API_KEY"))
+
+# Simple trace to log layer output shapes
+with console.status("[bold green]Running trace to log layer shapes...") as status:
+    with llama.trace("Hello world!") as tracer:
+        for layer_idx in range(len(llama.model.layers)):
+            layer_output = llama.model.layers[layer_idx].output
+            print(f"Layer {layer_idx} output shape: {layer_output.shape}")
+
+        # Also log embedding and final layer norm shapes
+        embed_output = llama.model.embed_tokens.output
+
+        print(f"Embedding output shape: {embed_output.shape}")
+
+# %%
+
 
 # %%
 ## DATASET STATS
@@ -27,8 +64,6 @@ import os
 dataset_dir = "dataset"
 file_count = 0
 dir_count = 0
-
-print(f"Current working directory: {os.getcwd()}")
 
 for root, dirs, files in os.walk(dataset_dir):
     print(f"Directory: {root}")
@@ -41,174 +76,10 @@ for root, dirs, files in os.walk(dataset_dir):
         # print(f"  File: {file_path}")
         file_count += 1
 
-# print(f"Total directories: {dir_count}")
-# print(f"Total files: {file_count}")
-
 
 # %%
-def split_conversation(text, user_identifier="HUMAN:", ai_identifier="ASSISTANT:"):
-    user_messages = []
-    assistant_messages = []
-
-    lines = text.split("\n")
-
-    current_user_message = ""
-    current_assistant_message = ""
-
-    for line in lines:
-        line = line.lstrip(" ")
-        if line.startswith(user_identifier):
-            if current_assistant_message:
-                assistant_messages.append(current_assistant_message.strip())
-                current_assistant_message = ""
-            current_user_message += line.replace(user_identifier, "").strip() + " "
-        elif line.startswith(ai_identifier):
-            if current_user_message:
-                user_messages.append(current_user_message.strip())
-                current_user_message = ""
-            current_assistant_message += line.replace(ai_identifier, "").strip() + " "
-
-    if current_user_message:
-        user_messages.append(current_user_message.strip())
-    if current_assistant_message:
-        assistant_messages.append(current_assistant_message.strip())
-
-    return user_messages, assistant_messages
 
 
-def llama_v2_prompt(messages: list[dict], system_prompt=None):
-    B_INST, E_INST = "[INST]", "[/INST]"
-    B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
-    BOS, EOS = "<s>", "</s>"
-    if system_prompt:
-        DEFAULT_SYSTEM_PROMPT = system_prompt
-    else:
-        DEFAULT_SYSTEM_PROMPT = f"""You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Please ensure that your responses are socially unbiased and positive in nature. If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information."""
-
-    if messages[0]["role"] != "system":
-        messages = [
-            {
-                "role": "system",
-                "content": DEFAULT_SYSTEM_PROMPT,
-            }
-        ] + messages
-    messages = [
-        {
-            "role": messages[1]["role"],
-            "content": B_SYS + messages[0]["content"] + E_SYS + messages[1]["content"],
-        }
-    ] + messages[2:]
-
-    messages_list = [
-        f"{BOS}{B_INST} {(prompt['content']).strip()} {E_INST} {(answer['content']).strip()} {EOS}"
-        for prompt, answer in zip(messages[::2], messages[1::2])
-    ]
-    if messages[-1]["role"] == "user":
-        messages_list.append(
-            f"{BOS}{B_INST} {(messages[-1]['content']).strip()} {E_INST}"
-        )
-
-    return "".join(messages_list)
-
-
-# %%
-import re
-from torch.utils.data import Dataset
-
-
-class GenderDataset(Dataset):
-    def __init__(self, dataset_dir, llama):
-        self.dataset_dir = dataset_dir
-        self.model = llama
-        self.files = []
-        self.labels = []
-        self.conversations = []
-        self.load_data()
-
-    def prompt_template(self, conversation, attribute):
-        return f"{conversation} I think the {attribute} of this user is"
-
-    def get_attribute_from_file_path(self, file_path):
-        return os.path.basename(file_path).split("_")[-1].split(".")[0]
-
-    def load_data(self):
-        all_files = []
-        for root, dirs, files in os.walk(self.dataset_dir):
-            # regex for gender directories
-            if re.match(r"^llama_gender_\d+$", os.path.basename(root)):
-                for file in files:
-                    if file.endswith(".txt"):
-                        file_path = os.path.join(root, file)
-                        all_files.append(file_path)
-
-        for file_path in tqdm(all_files, desc="Loading conversations"):
-            print(f"Loading {file_path}")
-            self.files.append(file_path)
-            conversation = self.load_conversation_from_file(file_path)
-            attribute = self.get_attribute_from_file_path(file_path)
-
-            if "HUMAN:" in conversation:
-                user_msgs, ai_msgs = split_conversation(
-                    conversation, "HUMAN:", "ASSISTANT:"
-                )
-            elif "USER:" in conversation:
-                user_msgs, ai_msgs = split_conversation(
-                    conversation, "USER:", "ASSISTANT:"
-                )
-            messages_dict = []
-            for user_msg, ai_msg in zip(user_msgs, ai_msgs):
-                messages_dict.append({"content": user_msg, "role": "user"})
-                messages_dict.append({"content": ai_msg, "role": "assistant"})
-            llama_prompt = llama_v2_prompt(messages_dict)
-
-            llama_prompt += f" I think the {attribute} of this user is"
-
-            with self.model.trace(llama_prompt) as tracer:
-                # save the activations from each layer
-                activations = []
-                layer_p_bar = tqdm(
-                    range(19, len(self.model.model.layers)), desc="Saving activations"
-                )
-
-                for layer_idx in layer_p_bar:
-                    # pass
-                    last_token_activations = (
-                        self.model.model.layers[layer_idx].output[:, -1, :].save()
-                    )
-                    activations.append(last_token_activations)
-                    layer_p_bar.set_description(
-                        f"Saving activations for layer {layer_idx}"
-                    )
-
-                layer_p_bar.close()
-
-                self.conversations.append(llama_prompt)
-                self.activations.append(activations)
-                self.labels.append(attribute)
-
-    def load_conversation_from_file(self, file_path):
-        with open(file_path, "r") as file:
-            return file.read()
-
-    def str_to_int(self, str):
-        if str == "male":
-            return 0
-        elif str == "female":
-            return 1
-        else:
-            raise ValueError(f"Invalid gender: {str}")
-
-    def __len__(self):
-        return len(self.files)
-
-    def __getitem__(self, idx):
-        return self.conversations[idx], self.str_to_int(self.labels[idx])
-
-
-dataset = GenderDataset("dataset", llama)
-
-
-# %%
 class TrainerConfig:
     # optimization parameters
     learning_rate = 1e-3
@@ -222,12 +93,9 @@ class TrainerConfig:
             setattr(self, k, v)
 
 
-# %%
 # Tokenize the inputs
 
-import torch
-from torch.utils.data import DataLoader, Subset, random_split
-
+dataset = GenderDataset("dataset", llama, file_limit=32)
 
 train_size = int(0.8 * len(dataset))
 val_size = len(dataset) - train_size
@@ -235,15 +103,132 @@ val_size = len(dataset) - train_size
 train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=32, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
 
-
-# %%
+loss_func = nn.BCELoss()
 
 
 def train(model, train_loader, optimizer, config):
-    pass
+    model.train()
+
+    loss_sum = 0
+    correct = 0
+    tot = 0
+
+    for batch in train_loader:
+        # send the batch through the probe
+        activations = batch["hidden_states"].to("cuda")
+        print(activations.shape)
+        label = batch["label"].to("cuda").unsqueeze(1)
+        print(label)
+        output = model(activations)
+
+        loss = loss_func(output[0], label)
+
+        loss.backward()
+
+        optimizer.zero_grad()
+        optimizer.step()
+
+        loss_sum += loss.item()
+        correct += (output[0].argmax(dim=1) == label).sum().item()
+        tot += label.size(0)
+
+    return loss_sum / len(train_loader), correct / tot
 
 
 def test(model, test_loader, config):
-    pass
+    model.eval()
+    loss_sum = 0
+    correct = 0
+    tot = 0
+    with torch.no_grad():
+        for batch in test_loader:
+            activations = batch["hidden_states"]
+            label = batch["label"]
+            output = model(activations)
+            loss = loss_func(output[0], label)
+            loss_sum += loss.item()
+            correct += (output[0].argmax(dim=1) == label).sum().item()
+            tot += label.size(0)
+
+    return loss_sum / len(test_loader), correct / tot
+
+
+from tqdm.auto import tqdm
+from rich.console import Console
+from rich.table import Table
+from rich.progress import Progress, SpinnerColumn, TextColumn
+
+console = Console()
+accuracy_dict = {}
+
+with Progress(
+    SpinnerColumn(),
+    TextColumn("[progress.description]{task.description}"),
+    console=console,
+) as progress:
+    task = progress.add_task("Training probes across layers...", total=40)
+
+    for i in range(40):
+        progress.update(task, description=f"Training probe for layer {i}")
+
+        trainer_config = TrainerConfig()
+        probe = LinearProbeClassification(
+            probe_class=2, device="cuda", input_dim=4096, logistic=True
+        )
+        optimizer, scheduler = probe.configure_optimizers(trainer_config)
+        best_acc = 0
+        max_epoch = 50
+
+        train_losses = []
+        test_losses = []
+        train_accs = []
+        test_accs = []
+
+        epoch_pbar = tqdm(
+            range(1, max_epoch + 1), desc=f"Layer {i} epochs", leave=False
+        )
+
+        for epoch in epoch_pbar:
+            train_results = train(probe, train_loader, optimizer, trainer_config)
+            test_results = test(probe, test_loader, trainer_config)
+
+            train_loss, train_acc = train_results
+            test_loss, test_acc = test_results
+
+            train_losses.append(train_loss)
+            test_losses.append(test_loss)
+            train_accs.append(train_acc)
+            test_accs.append(test_acc)
+
+            if test_acc > best_acc:
+                best_acc = test_acc
+
+            epoch_pbar.set_postfix(
+                {
+                    "train_loss": f"{train_loss:.3f}",
+                    "test_loss": f"{test_loss:.3f}",
+                    "train_acc": f"{train_acc:.3f}",
+                    "test_acc": f"{test_acc:.3f}",
+                    "best_acc": f"{best_acc:.3f}",
+                }
+            )
+
+        accuracy_dict[f"probe_at_layer_{i}"] = best_acc
+
+        table = Table(title=f"Layer {i} Training Summary")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="magenta")
+        table.add_row("Best Test Accuracy", f"{best_acc:.4f}")
+        table.add_row("Final Train Loss", f"{train_losses[-1]:.4f}")
+        table.add_row("Final Test Loss", f"{test_losses[-1]:.4f}")
+
+        console.print(table)
+        progress.advance(task)
+
+console.print(f"\n[bold green]Training completed![/bold green]")
+console.print(f"Best overall accuracy: {max(accuracy_dict.values()):.4f}")
+
+
+# plot

@@ -1,0 +1,21 @@
+{
+  "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+  "patient_info": "Why do I not bruise Hi there, I'm a 19 year old white female. I am iron deficient with a level of 6 (the ideal range is 20-200). Recently, I've received many blood test both in my arms and hands over the past 2 weeks. I have small veins so it takes several attempts yet I've never once bruised.  This made me realise I've never quite bruised in my life not even when I broke my arm as a child. I've been iron deficient for several years. Just wondering if anyone knew why I'm incapable of bruising. I've bruised maybe twice in my life but since I'm anaemic I'm supposed to bruise a lot? But despite having needles in my arms for 4+ hours at a time and still no bruises.",
+  "results": {
+    "MANAGE": [
+      0,
+      0,
+      0
+    ],
+    "VISIT": [
+      0,
+      0,
+      0
+    ],
+    "RESOURCE": [
+      1,
+      1,
+      1
+    ]
+  }
+}
