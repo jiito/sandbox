@@ -26,4 +26,5 @@ dependencies = [
 [tool.uv.workspace]
 members = [
     "bilingual_user_models/talk_tuner",
+    "bilingual_user_models",
 ]

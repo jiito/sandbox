@@ -1,5 +1,7 @@
 from typing import Iterable, Optional
+import os
 import re
+import tqdm
 
 from deep_translator import GoogleTranslator
 
@@ -8,7 +10,9 @@ class ConversationTranslator:
     def __init__(self, target_language: str, source_language: str = "auto") -> None:
         self.target_language = target_language
         self.source_language = source_language
-        self._translator = GoogleTranslator(source=self.source_language, target=self.target_language)
+        self._translator = GoogleTranslator(
+            source=self.source_language, target=self.target_language
+        )
 
     def translate_text(self, text: str) -> str:
         if not text:
@@ -53,4 +57,16 @@ class ConversationTranslator:
 
         return out_path
 
+    def _get_out_file(self, file: str, output_path: str | None = None) -> str:
+        return (
+            os.path.join(output_path, file)
+            if output_path
+            else f"{file}_{self.target_language}.txt"
+        )
 
+    def translate_directory(
+        self, input_path: str, output_path: str | None = None
+    ) -> str:
+        for file in tqdm.tqdm(os.listdir(input_path)):
+            out_file = self._get_out_file(file, output_path)
+            self.translate_file(os.path.join(input_path, file), out_file)
