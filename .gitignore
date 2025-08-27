@@ -2,3 +2,4 @@
 .env
 papers/talk_tuner/dataset/
 papers/talk_tuner/__pycache__/
+bilingual_user_models/dataset/**/*.txt
