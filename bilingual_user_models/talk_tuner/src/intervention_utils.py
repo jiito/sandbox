@@ -42,38 +42,35 @@ num_classes = {"age": 4,
 
 
 def return_classifier_dict(directory, model_func, chosen_layer=None, mix_scaler=False, sklearn=False, **kwargs):
-    checkpoint_paths = [p for p in os.listdir(directory) if p.endswith("_final.pth")]
+    checkpoint_paths = os.listdir(directory)
+    # file_paths = [os.path.join(directory, file) for file in checkpoint_paths if file.endswith("pth")]
     classifier_dict = {}
-    for path in checkpoint_paths:
-        category = path[:path.find("_")]
-        weight_path = os.path.join(directory, path)
+    for i in range(len(checkpoint_paths)):
+        category = checkpoint_paths[i][:checkpoint_paths[i].find("_")]
+        weight_path = os.path.join(directory, checkpoint_paths[i])
         num_class = num_classes[category]
         if category == "gender" and sklearn:
             num_class = 1
-        if category not in classifier_dict:
+        if category not in classifier_dict.keys():
             classifier_dict[category] = {}
         if mix_scaler:
-            classifier_dict[category]["all"] = load_probe_classifier(
-                model_func, 5120, num_classes=num_class, weight_path=weight_path, **kwargs
-            )
+            classifier_dict[category]["all"] = load_probe_classifier(model_func, 5120, 
+                                                                     num_classes=num_class,
+                                                                     weight_path=weight_path, **kwargs)
         else:
-            # Extract layer number from filename, e.g. "age_probe_at_layer_12_final.pth"
-            # Find the last occurrence of "_layer_" and extract the number after it, before "_final.pth"
-            try:
-                layer_str = path.split("_layer_")[-1].split("_final")[0]
-                layer_num = int(layer_str)
-            except Exception as e:
-                print(f"Could not parse layer number from {path}")
-                continue
+            layer_num = int(checkpoint_paths[i][checkpoint_paths[i].rfind("_") + 1: checkpoint_paths[i].rfind(".pth")])
 
             if chosen_layer is None or layer_num == chosen_layer:
                 try:
-                    classifier_dict[category][layer_num] = load_probe_classifier(
-                        model_func, 5120, num_classes=num_class, weight_path=weight_path, **kwargs
-                    )
+                    classifier_dict[category][layer_num] = load_probe_classifier(model_func, 5120, 
+                                                                                 num_classes=num_class,
+                                                                                 weight_path=weight_path, **kwargs)
                 except Exception as e:
                     print(category)
+                    # print(e)
+                        
     return classifier_dict
+
 
 
 def split_into_messages(text: str) -> list[str]:

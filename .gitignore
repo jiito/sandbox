@@ -6,3 +6,4 @@ bilingual_user_models/dataset/**/*.txt
 bilingual_user_models/lang_dataset/**/*.txt
 bilingual_user_models/__pycache__/
 **/__pycache__/
+bilingual_user_models/probe_checkpoints/**/*.pth
