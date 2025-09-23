@@ -1,5 +1,4 @@
-from collections import deque
-from typing import List, Self
+from typing import List, Literal, Self
 
 
 class Node:
@@ -42,20 +41,32 @@ def tree_height(root: Node) -> int:
     return max([1 + tree_height(c) for c in root.children])
 
 
-def minimax():
-    pass
-
-
-def test_minimax():
-    pass
-
-
 root = Node(0, [Node(1, [Node(3), Node(5)]), Node(2, [Node(2), Node(9)])])
 
 
-print_tree(root)
-print("=========")
-print(f"Height of tree: {tree_height(root)}")
-print("=========")
+assert tree_height(root) == 3
 levels = level_order_traversal(root)
 print(levels)
+
+
+def minimax(root: Node, whose_turn: Literal["max", "min"]):
+    # one agent tries to maximize the value , other agent tries to minimize
+    # select depending on how to max
+    if not root.children:
+        return root.val
+
+    # How would you derrive this?
+    # what about trees that aren't perfect Binary Trees?
+
+    # do we assume the max player goes first?
+
+    # The algo is the maximum of the game on the subtrees, given the players turn...
+    next_turn = "max" if whose_turn == "min" else "min"
+
+    values = [minimax(c, next_turn) for c in root.children]
+
+    return max(values) if whose_turn == "max" else min(values)
+
+
+assert minimax(root, "max") == 3
+assert minimax(root, "min") == 5
