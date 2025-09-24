@@ -30,8 +30,10 @@ class Connect4:
         return [list(col) for col in zip(*self.board)]
 
     def _get_next_open_row(self, col: List[int]):
-        row_to_place = col.index(0)
-        return row_to_place
+        try:
+            return col.index(0)
+        except ValueError:
+            return -1
 
     def _col_is_full(self, col):
         return self._get_next_open_row(col) < 0
@@ -256,4 +258,5 @@ def test_connect_4():
     assert g.check_winner() == 2
 
 
-test_connect_4()
+if __name__ == "main":
+    test_connect_4()
