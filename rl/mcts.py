@@ -1,6 +1,7 @@
 import math
 import random
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
+
 from connect_4 import Connect4
 
 
@@ -92,6 +93,102 @@ class MonteCarloSimulator:
         return best[0], move_evals
 
 
+class MCTSNode:
+    def __init__(
+        self,
+        game_state: Connect4,
+        parent: Optional["MCTSNode"] = None,
+        move_made: Optional[int] = None,
+    ):
+        self.game_state = game_state.copy()
+        self.parent = parent
+        self.move_made = move_made  # Move that led to this node
+
+        # MCTS Statistics
+        self.visits = 0
+        self.wins = 0.0  # Can be fractional for draws
+
+        # Tree Structure
+        self.children: Dict[int, "MCTSNode"] = {}  # move -> child_node
+        self.untried_moves = game_state.get_valid_moves()
+
+    def is_fully_expanded(self) -> bool:
+        """Check if all possible moves have been tried."""
+        # TODO: Return True if no untried moves remain
+
+        return len(self.untried_moves) == 0
+
+    def is_terminal(self) -> bool:
+        """Check if this is a terminal game state."""
+        # TODO: Return True if game is over (win/loss/draw)
+        return self.game_state.check_winner() != 0
+
+    def ucb1_value(self, exploration_param: float = 1.414) -> float:
+        """Calculate UCB1 value for this node."""
+        if self.visits == 0:
+            return float("inf")  # Unvisited nodes get highest priority
+
+        # UCB1 = win_rate + exploration_param * sqrt(ln(parent_visits) / visits)
+
+        ucb1 = (self.wins / self.visits) + exploration_param * (
+            math.log(self.parent.visits) / self.visits
+        ) ** 0.5
+
+        return ucb1
+
+    def select_child(self, exploration_param: float = 1.414) -> "MCTSNode":
+        """Select child with highest UCB1 value."""
+        # TODO: Return child node with maximum UCB1 value
+        max_child = (None, float("-inf"))
+        for child in self.children.values():
+            if child.ucb1_value() > max_child[1]:
+                max_child = (child, child.ucb1_value())
+        return max_child[0]
+
+    def expand(self) -> "MCTSNode":
+        """Create a new child node for an untried move."""
+        # TODO:
+        # 1. Pick a random untried move
+        # 2. Create new game state by making that move
+        # 3. Create child node
+        # 4. Update untried_moves and children
+        # 5. Return the new child
+
+        move = random.choice(self.untried_moves)
+
+        game = self.game_state.copy()
+
+        game.make_move(move)
+
+        self.children[move] = MCTSNode(game, self, move)
+
+        self.untried_moves.remove(move)
+
+        return self.children[move]
+
+    def backpropagate(self, result: int):
+        """Update statistics for this node and all ancestors."""
+        # TODO:
+        # 1. Update visits and wins for this node
+        # 2. Recursively update parent nodes
+        # Note: Handle perspective - Player 1 win vs Player 2 win
+
+        # key: 1 == player1 win, 2 == player2 win, -1 == draw
+
+        # How do we keep track of who is winning?
+        player = self.game_state.current_player
+
+        if result == -1:
+            self.wins += 0.5
+        elif result != player:
+            self.wins += 1
+
+        self.visits += 1
+
+        if self.parent:
+            self.parent.backpropagate(result)
+
+
 if __name__ == "__main__":
     # Test your simulator
     game = Connect4()
@@ -117,3 +214,36 @@ if __name__ == "__main__":
     best_move, evaluations = simulator.best_move_by_rollouts(game, num_simulations=500)
     print(f"Suggested move: column {best_move} for player {game.current_player}")
     print(f"Move evaluations: {evaluations}")
+
+    # MCTS
+
+    T = 5000  # timelimit
+
+    t = 0
+
+    root = MCTSNode(game)
+
+    while t < T:
+        current_node = root
+        # select
+        while current_node.is_fully_expanded() and not current_node.is_terminal():
+            current_node = current_node.select_child()
+
+        # expand
+        if not current_node.is_terminal():
+            current_node = current_node.expand()
+
+        simulator = MonteCarloSimulator(current_node.game_state)
+
+        # simulate
+        result = simulator.rollout(current_node.game_state)
+
+        # backprop
+        current_node.backpropagate(result=result)
+
+        t += 1
+    print(f"moves: {[f'{k}, {v.ucb1_value()}' for k, v in root.children.items()]}")
+
+    best_move = root.select_child(0)
+
+    print(f"best move: {best_move.move_made}")
