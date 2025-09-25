@@ -112,6 +112,9 @@ class MCTSNode:
         self.children: Dict[int, "MCTSNode"] = {}  # move -> child_node
         self.untried_moves = game_state.get_valid_moves()
 
+        # player who made move is previous player
+        self.player_who_made_move = 1 if game_state.current_player == 2 else 2
+
     def is_fully_expanded(self) -> bool:
         """Check if all possible moves have been tried."""
         # TODO: Return True if no untried moves remain
@@ -141,8 +144,8 @@ class MCTSNode:
         # TODO: Return child node with maximum UCB1 value
         max_child = (None, float("-inf"))
         for child in self.children.values():
-            if child.ucb1_value() > max_child[1]:
-                max_child = (child, child.ucb1_value())
+            if child.ucb1_value(exploration_param) > max_child[1]:
+                max_child = (child, child.ucb1_value(exploration_param))
         return max_child[0]
 
     def expand(self) -> "MCTSNode":
@@ -168,7 +171,6 @@ class MCTSNode:
 
     def backpropagate(self, result: int):
         """Update statistics for this node and all ancestors."""
-        # TODO:
         # 1. Update visits and wins for this node
         # 2. Recursively update parent nodes
         # Note: Handle perspective - Player 1 win vs Player 2 win
@@ -176,17 +178,21 @@ class MCTSNode:
         # key: 1 == player1 win, 2 == player2 win, -1 == draw
 
         # How do we keep track of who is winning?
-        player = self.game_state.current_player
+        player = self.player_who_made_move
 
         if result == -1:
             self.wins += 0.5
-        elif result != player:
+        elif result == player:
             self.wins += 1
 
         self.visits += 1
 
         if self.parent:
             self.parent.backpropagate(result)
+
+
+def plot_tree(root: MCTSNode):
+    pass
 
 
 if __name__ == "__main__":
@@ -199,23 +205,6 @@ if __name__ == "__main__":
     game.make_move(5)
 
     game.display()
-
-    simulator = MonteCarloSimulator(game)
-
-    # Single rollout
-    result = simulator.rollout(game)
-    print(f"Random game result: {result}")
-
-    # Position evaluation
-    stats = simulator.evaluate_position(game, num_simulations=1000)
-    print(f"Position evaluation: {stats}")
-
-    # Best move suggestion
-    best_move, evaluations = simulator.best_move_by_rollouts(game, num_simulations=500)
-    print(f"Suggested move: column {best_move} for player {game.current_player}")
-    print(f"Move evaluations: {evaluations}")
-
-    # MCTS
 
     T = 5000  # timelimit
 
@@ -247,3 +236,16 @@ if __name__ == "__main__":
     best_move = root.select_child(0)
 
     print(f"best move: {best_move.move_made}")
+
+    # After your MCTS run, add this:
+    print("\nDetailed node statistics:")
+    for move, child in root.children.items():
+        win_rate = child.wins / child.visits if child.visits > 0 else 0
+        print(
+            f"Move {move} by player {child.game_state.current_player} | {child.wins:.1f}/{child.visits} = {win_rate:.3f} win rate"
+        )
+        for move2, child2 in child.children.items():
+            win_rate = child2.wins / child2.visits if child2.visits > 0 else 0
+            print(
+                f"\tMove {move2} by player {child2.game_state.current_player} | {child2.wins:.1f}/{child2.visits} = {win_rate:.3f} win rate"
+            )
