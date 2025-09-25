@@ -29,9 +29,9 @@ class MonteCarloSimulator:
             if len(valid_moves) == 0:
                 return -1
 
-            rand_move = random.choice(valid_moves)
+            move = random.choice(valid_moves)
 
-            game.make_move(rand_move)
+            game.make_move(move)
             winner = game.check_winner()
             if winner > 0:
                 return winner

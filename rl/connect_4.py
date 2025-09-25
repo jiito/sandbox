@@ -46,7 +46,28 @@ class Connect4:
 
         cols = self._board_columns()
 
-        return [i for i in range(len(cols)) if not self._col_is_full(cols[i])]
+        valid_cols = [i for i in range(len(cols)) if not self._col_is_full(cols[i])]
+
+        wm = self.check_winning_move(valid_cols)
+
+        if wm != -1:
+            return [wm]
+
+        return valid_cols
+
+    def check_winning_move(self, moves: List[int]) -> int:
+        # look for groups of 3 that can be completed SIKE
+        # simulate each valid move and then if any are winning, return that move
+        for move in moves:
+            sim = self.copy()
+
+            sim.make_move(move)
+
+            w = sim.check_winner()
+            if w == 1 or w == 2:
+                return move
+
+        return -1  # not a valid move
 
     def check_winner(self) -> int:
         """Return 1 if player 1 wins, 2 if player 2 wins, 0 if ongoing, -1 if draw."""
