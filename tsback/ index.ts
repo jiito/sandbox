@@ -34,7 +34,7 @@ type InternalPlusOne<S extends string> = S extends "9"
     : `${[1, 2, 3, 4, 5, 6, 7, 8, 9][Digit]}${Rest}`
   : never;
 
-export type MinusOne<T extends number> = T extends 0
+type MinusOne<T extends number> = T extends 0
   ? -1 // T = 0
   : `${T}` extends `-${infer Abs}`
   ? ParseInt<PutSign<ReverseString<InternalPlusOne<ReverseString<Abs>>>>> // T < 0
@@ -43,6 +43,22 @@ export type MinusOne<T extends number> = T extends 0
       RemoveLeadingZeros<ReverseString<InternalMinusOne<ReverseString<`${T}`>>>>
     >;
 
+// TODO: fix this one
+type PlusOne<T extends number> = T extends PutSign<"1">
+  ? 0 // T = -1
+  : `${T}` extends `-${infer Abs}`
+  ? // T < -1
+    ParseInt<
+      PutSign<
+        RemoveLeadingZeros<ReverseString<InternalMinusOne<ReverseString<Abs>>>>
+      >
+    >
+  : // T >= 0
+    ParseInt<
+      RemoveLeadingZeros<ReverseString<InternalPlusOne<ReverseString<`${T}`>>>>
+    >;
+
+type nn = MinusOne<100>;
 // type MinusOne<n extends number>  = n extends 0?
 type Repeat<
   V extends string,
