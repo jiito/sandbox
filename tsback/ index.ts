@@ -67,3 +67,36 @@ type Repeat<
 > = count extends 0 ? acc : Repeat<V, MinusOne<count>, `${acc}${V}`>;
 
 type Create10ToPower<Power extends number> = ParseInt<`1${Repeat<"0", Power>}`>;
+
+type Take<S extends string, n extends number> = n extends 0
+  ? ""
+  : S extends `${infer First}${infer Rest}`
+  ? `${First}${Take<Rest, MinusOne<n>>}`
+  : S;
+
+type t = Take<"1234", 5>;
+
+type LenString<S extends string> = S extends ""
+  ? 0
+  : S extends `${infer First}${infer Rest}`
+  ? PlusOne<LenString<Rest>>
+  : 0;
+
+type AllZeros<P extends string> = P extends Repeat<"0", LenString<P>>
+  ? true
+  : false;
+
+type ReplacePre<S extends string, R extends string> = S extends `${Take<
+  S,
+  LenString<R>
+>}${infer Rest}`
+  ? `${R}${Rest}`
+  : S;
+
+type xxx = ReplacePre<"0000001", "321">;
+
+type AddToPowerOfTen<P extends string, N extends string> = ParseInt<
+  ReverseString<ReplacePre<ReverseString<P>, ReverseString<N>>>
+>;
+
+type addf = AddToPowerOfTen<"10000", "123">;
